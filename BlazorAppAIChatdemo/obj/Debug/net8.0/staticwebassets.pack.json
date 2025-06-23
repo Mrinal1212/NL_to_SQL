@@ -1,0 +1,45 @@
+{
+  "Files": [
+    {
+      "Id": "D:\\Mrinal_Data\\AI_Integration\\New folder\\BlazorAppAIChatdemo\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\BlazorAppAIChatdemo.bundle.scp.css",
+      "PackagePath": "staticwebassets\\BlazorAppAIChatdemo.q0l2tfq0l6.bundle.scp.css"
+    },
+    {
+      "Id": "D:\\Mrinal_Data\\AI_Integration\\New folder\\BlazorAppAIChatdemo\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "D:\\Mrinal_Data\\AI_Integration\\New folder\\BlazorAppAIChatdemo\\wwwroot\\bootstrap\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
+    },
+    {
+      "Id": "D:\\Mrinal_Data\\AI_Integration\\New folder\\BlazorAppAIChatdemo\\wwwroot\\bootstrap\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "D:\\Mrinal_Data\\AI_Integration\\New folder\\BlazorAppAIChatdemo\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.BlazorAppAIChatdemo.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.BlazorAppAIChatdemo.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.BlazorAppAIChatdemo.props",
+      "PackagePath": "build\\BlazorAppAIChatdemo.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.BlazorAppAIChatdemo.props",
+      "PackagePath": "buildMultiTargeting\\BlazorAppAIChatdemo.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.BlazorAppAIChatdemo.props",
+      "PackagePath": "buildTransitive\\BlazorAppAIChatdemo.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
