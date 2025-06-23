@@ -1,0 +1,259 @@
+﻿@page "/"
+@using BlazorAppAIChatdemo.Model
+@using Microsoft.SemanticKernel
+@inject Kernel kernel
+@rendermode InteractiveServer
+<h3>Sqlai</h3>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="mt-4"> NL to SQL</h3>
+        <hr />
+        <br />
+    </div>
+    <div class="col-md-12">
+        <h5>@apiResponse</h5>
+        <div class="form-group mb-3">
+            <h4 for="name">Your Prompt</h4>
+            <textarea type="text" @bind="UserPrompt" id="UserPrompt" class="form-control"></textarea>
+        </div>
+
+        <button id="submit" type="submit" class="btn btn-success" @onclick ="SendMessage"><span>Submit</span></button>
+        <button type="button" id="micBtn" class="btn btn-light"><i class="fa fa-microphone" aria-hidden="true"></i></button>
+        <hr />
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <p><b>Error:</b> @Error</p>
+        }
+        @if (!string.IsNullOrEmpty(Summary))
+        {
+            <p><b>AI generated Summary:</b> @Summary</p>
+        }
+        @if (!string.IsNullOrEmpty(Query))
+        {
+            <p><b>AI generated Query:</b> @Query</p>
+        }
+        @if (RowData != null)
+        {
+            <p><b>Data results:</b></p>
+        }
+        <div class="overflow-scroll">
+            <table class="table table-striped">
+                @if (RowData != null)
+                {
+                    foreach (var row in RowData)
+                    {
+                        <tr>
+                            @foreach (var col in row)
+                            {
+                                <td>@col</td>
+                            }
+                        </tr>
+                    }
+                }
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('micBtn').addEventListener('click', function () {
+        // Check for browser support
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Speech recognition not supported in this browser.');
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('UserPrompt').value = transcript;
+            document.getElementById('submit').click();
+        };
+
+        recognition.onerror = function(event) {
+            alert('Error occurred in recognition: ' + event.error);
+        };
+
+        recognition.start();
+    });
+</script>
+
+@code {
+    public string UserPrompt;
+    private List<List<string>> RowData;
+    private string Summary;
+    private string Query;
+    private string Error;
+    private string apiResponse = string.Empty;
+
+    private async Task SendMessage()
+    {
+        try
+        {
+            apiResponse = string.Empty;
+            Summary = string.Empty;
+            Query = string.Empty;
+            RowData = new List<List<string>>();
+            Error = string.Empty;
+
+            var systemMessage = @"
+You are an expert SQL Server assistant, specialized in translating natural language requests into accurate and executable Microsoft SQL Server queries.
+
+Use the following relational schema for all interpretations and queries:
+
+- dbo.Customer (City, Country, FirstName, Id, LastName, Phone)
+- dbo.[Order] (CustomerId, Id, OrderDate, OrderNumber, TotalAmount)
+- dbo.OrderItem (Id, OrderId, ProductId, Quantity, UnitPrice)
+- dbo.Product (Id, IsDiscontinued, Package, ProductName, SupplierId, UnitPrice)
+- dbo.Supplier (City, CompanyName, ContactName, ContactTitle, Country, Fax, Id, Phone)
+
+### Guidelines for Response:
+- Always output a valid JSON object with the format:
+  {
+    ""summary"": ""<short explanation of what the query does>"",
+    ""query"": ""<SQL Server query>""
+  }
+- Only include the JSON object in the output. Do not add any commentary or notes.
+- The `query` field must contain a fully syntactically correct T-SQL query for Microsoft SQL Server.
+- Always include all columns from the primary table(s) involved in the output.
+- Use SQL Server-specific syntax (e.g., GETDATE(), TOP, square brackets for identifiers).
+- If a valid SQL Server query cannot be produced from the input, set ""query"" to ""NA"" and still provide an informative ""summary"".
+
+### Additional Instructions:
+- Prioritize clarity, performance, and correctness.
+- Use appropriate JOINs based on foreign keys (e.g., CustomerId, OrderId, SupplierId).
+- Use aliases for table names to improve readability.
+- For filters such as date ranges or top N results, make reasonable assumptions if values are not provided.
+- Use ORDER BY for queries involving ranking or recency.
+- When filtering text fields (e.g., name, city), use LIKE '%%value%%'.
+- Ensure all column names appear as headers in the result.
+- Avoid using functions or syntax not supported in SQL Server.
+- Always handle plural nouns (e.g., “customers”, “orders”) appropriately.
+- If the request is ambiguous, choose the most reasonable interpretation.
+- Do not add \n in the query.
+- Generate logic based query instead of hard coded values.
+
+### Examples:
+
+1. Simple Filter
+NL: Show all customers from Germany
+{
+  ""summary"": ""Retrieves all columns of customers located in Germany."",
+  ""query"": ""SELECT * FROM dbo.Customer WHERE Country = 'Germany'""
+}
+
+2. Recent Orders
+NL: List the 5 most recent orders
+{
+  ""summary"": ""Lists the 5 most recent orders by order date."",
+  ""query"": ""SELECT TOP 5 * FROM dbo.[Order] ORDER BY OrderDate DESC""
+}
+
+3. JOIN with Aggregation
+NL: Show each customer and their total number of orders
+{
+  ""summary"": ""Lists customers along with their total order count."",
+  ""query"": ""SELECT c.*, COUNT(o.Id) AS TotalOrders FROM dbo.Customer c LEFT JOIN dbo.[Order] o ON c.Id = o.CustomerId GROUP BY c.City, c.Country, c.FirstName, c.Id, c.LastName, c.Phone""
+}
+
+4. JOIN across three tables
+NL: List all order items along with product name and customer name
+{
+  ""summary"": ""Shows order items with related product name and customer name."",
+  ""query"": ""SELECT oi.*, p.ProductName, c.FirstName, c.LastName FROM dbo.OrderItem oi JOIN dbo.Product p ON oi.ProductId = p.Id JOIN dbo.[Order] o ON oi.OrderId = o.Id JOIN dbo.Customer c ON o.CustomerId = c.Id""
+}
+
+5. Date Filter
+NL: Show all orders placed in 2024
+{
+  ""summary"": ""Displays all orders placed in the year 2024."",
+  ""query"": ""SELECT * FROM dbo.[Order] WHERE YEAR(OrderDate) = 2024""
+}
+
+6. Aggregate and Sort
+NL: Which products have been ordered the most?
+{
+  ""summary"": ""Lists products sorted by total quantity ordered in descending order."",
+  ""query"": ""SELECT p.*, SUM(oi.Quantity) AS TotalOrdered FROM dbo.Product p JOIN dbo.OrderItem oi ON p.Id = oi.ProductId GROUP BY p.Id, p.IsDiscontinued, p.Package, p.ProductName, p.SupplierId, p.UnitPrice ORDER BY TotalOrdered DESC""
+}
+
+7. Conditional Logic
+NL: Show all products and label whether they are discontinued or not
+{
+  ""summary"": ""Displays all product columns and adds a status indicating if each product is discontinued."",
+  ""query"": ""SELECT *, CASE WHEN IsDiscontinued = 1 THEN 'Discontinued' ELSE 'Active' END AS Status FROM dbo.Product""
+}
+
+8. Suppliers from same country as customers
+NL: List suppliers located in the same countries as customers
+{
+  ""summary"": ""Finds suppliers whose countries match those of existing customers."",
+  ""query"": ""SELECT s.* FROM dbo.Supplier s WHERE s.Country IN (SELECT DISTINCT Country FROM dbo.Customer)""
+}
+
+9. No Orders
+NL: Show customers who have never placed an order
+{
+  ""summary"": ""Lists customers who do not have any associated orders."",
+  ""query"": ""SELECT c.* FROM dbo.Customer c LEFT JOIN dbo.[Order] o ON c.Id = o.CustomerId WHERE o.Id IS NULL""
+}
+
+10. Product revenue
+NL: Show revenue generated per product
+{
+  ""summary"": ""Calculates total revenue per product by multiplying quantity with unit price."",
+  ""query"": ""SELECT p.*, SUM(oi.Quantity * oi.UnitPrice) AS Revenue FROM dbo.Product p JOIN dbo.OrderItem oi ON p.Id = oi.ProductId GROUP BY p.Id, p.IsDiscontinued, p.Package, p.ProductName, p.SupplierId, p.UnitPrice""
+}
+
+11. Prime Number
+NL: Show records where customer id is a prime number
+{
+    ""summary"": ""Finds and gives all the customers where customer id is a prime number"",
+    ""query"": ""WITH PrimeCheck AS (SELECT Id, City, Country, FirstName, LastName, Phone, CASE WHEN Id <= 1 THEN 0 WHEN Id = 2 THEN 1 WHEN Id % 2 = 0 THEN 0 WHEN Id = 3 THEN 1 WHEN Id % 3 = 0 THEN 0 WHEN NOT EXISTS (SELECT 1 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.objects a CROSS JOIN sys.objects b) nums WHERE nums.n * nums.n <= Id AND nums.n > 3 AND nums.n % 2 <> 0 AND nums.n % 3 <> 0 AND Id % nums.n = 0) THEN 1 ELSE 0 END AS IsPrime FROM dbo.Customer WHERE Id > 1) SELECT TOP 100 City, Country, FirstName, Id, LastName, Phone FROM PrimeCheck WHERE IsPrime = 1 ORDER BY Id""
+}
+";
+            //Always limit the SQL Query to 100 rows.
+
+            var promt = new Rootobject
+            {
+                model="gpt-4o",
+                messages = new Message[]
+                {
+                    new Message
+                    {
+                        role="user",
+                        content=UserPrompt
+                    },
+                    new Message
+                    {
+                        role="system",
+                        content=systemMessage
+                    }
+                }
+            };
+
+            var promtstring = System.Text.Json.JsonSerializer.Serialize(promt);
+            await foreach (var result in kernel.InvokePromptStreamingAsync<string>(promtstring))
+            {
+                apiResponse += result.Replace("```", "").Replace("json", "").Replace("\n", "").Replace("\t", "");
+                StateHasChanged();
+            }
+            var response = System.Text.Json.JsonSerializer.Deserialize<AIQuery>(apiResponse);
+            Summary = response.summary;
+            Query = response.query;
+            RowData = DataService.GetDataTable(response.query);
+            this.StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"API call failed with exception: {ex.Message}";
+            Error = ex.Message;
+        }
+    }
+}
